@@ -17,6 +17,7 @@ class PicameraImageProvider(ImageProvider):
         self.camera.configure(self.config)
         self.camera.set_controls({"AfMode": controls.AfModeEnum.Continuous})
         self.camera.start_preview()
+        self.camera.start()
 
     def next(self):
         img = self.camera.capture_array()

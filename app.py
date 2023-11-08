@@ -1,5 +1,7 @@
 import cv2
 import time
+import sys
+import os
 import numpy as np
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -8,7 +10,7 @@ from threading import Thread
 from threading import Event
 
 from video_image_provider import VideoImageProvider
-from picamera_image_provider import PicameraImageProvider
+#from picamera_image_provider import PicameraImageProvider
 from object_detection import NoDetection
 from yolo_object_detection import YoloObjectDetection
 
@@ -20,7 +22,7 @@ class MainWindow():
         self.display_width = display_width
         self.display_height = display_height
         self.image_display_width = display_height * image_aspect_ratio
-        self.interval = 100
+        self.interval = 10
 
         # create the main canvas for the image
         self.canvas = tk.Canvas(self.window, width=self.image_display_width, height=self.display_height)
@@ -110,13 +112,27 @@ class MainWindow():
         self.window.after(self.interval, self.update_image)
 
 
+# start the main window
 root = tk.Tk()
 main_window = MainWindow(root, display_width=1024, display_height=600, image_aspect_ratio=1/1)
 
-main_window.image_providers.append(VideoImageProvider("17517985-preview.mp4"))
-main_window.image_providers.append(PicameraImageProvider((640, 640)))
+# load all videos in directory "videos" as input providers
+if os.path.exists("videos"):
+    for video in os.listdir("videos"):
+        main_window.image_providers.append(VideoImageProvider(os.path.join("videos", video)))
+
+# if picamera2 library is installed, load it as a provider
+if 'picamera2' in sys.modules:
+    main_window.image_providers.append(PicameraImageProvider((640, 640)))
+
+# add empty option for detectors
 main_window.object_detectors.append(NoDetection())
+
+# add all yolo models in "yolo" directory, each in its own subdirectory containing model.onnx and classes.csv
 main_window.object_detectors.extend(YoloObjectDetection.look_for_models())
+
+# update the controls to correctly show data
 main_window.update_controls()
 
+# start the application
 root.mainloop()
