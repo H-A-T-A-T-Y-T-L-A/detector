@@ -20,10 +20,13 @@ class YoloObjectDetection(ObjectDetection):
             self.__class_names = []
             self.__class_colors = []
             for row in reader:
-                self.__class_names.append(row[0])
-                self.__class_colors.append(tuple(
-                    [int(str.replace(c, "\"", "")) for c in row[1:]]
-                ))
+                class_name = row[0]
+                class_color = tuple([int(str.replace(c, "\"", "")) for c in row[1:]])
+                self.__class_names.append(class_name)
+                self.__class_colors.append(class_color)
+                super()._classes[class_name] = class_color
+
+            self.enable_classes = [True for i in self.__class_names]
 
     def detect(self, image, threshold, nms_threshold):
         image_blob = cv2.dnn.blobFromImage(
@@ -43,6 +46,10 @@ class YoloObjectDetection(ObjectDetection):
             conf = out[:, 4:, i].reshape(-1)
 
             class_id = np.argmax(conf)
+
+            if not self.enable_classes[class_id]:
+                continue
+
             class_conf = conf[class_id]
 
             if class_conf >= threshold:

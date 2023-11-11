@@ -10,7 +10,8 @@ from threading import Thread
 from threading import Event
 
 from video_image_provider import VideoImageProvider
-#from picamera_image_provider import PicameraImageProvider
+if 'picamera2' in sys.modules:
+    from picamera_image_provider import PicameraImageProvider
 from object_detection import NoDetection
 from yolo_object_detection import YoloObjectDetection
 
@@ -24,21 +25,30 @@ class MainWindow():
         self.image_display_width = display_height * image_aspect_ratio
         self.interval = 10
 
+        # configure style
+        self.big_font = ('Helvetica', 15)
+        self.style = ttk.Style()
+        self.style.configure('TButton', font=self.big_font)
+        self.style.configure('TNotebook.Tab', font=self.big_font)
+
         # create the main canvas for the image
         self.canvas = tk.Canvas(self.window, width=self.image_display_width, height=self.display_height)
         self.canvas.grid(row=0, column=0, padx=10, pady=5)
 
         # right frame for the controls
-        self.right_frame = ttk.Frame(self.window, width=(self.display_width - self.image_display_width), height=self.display_height)
-        self.right_frame.grid(row=0, column=1, padx=10, pady=5)
+        self.tab_control = ttk.Notebook(self.window, width=int(self.display_width - self.image_display_width), height=self.display_height)
+        self.tab_control.grid(row=0, column=1, padx=10, pady=5)
 
-        self.detector_selector = ttk.Combobox(self.right_frame, values=[], state='readonly')
-        self.detector_selector.bind('<<ComboboxSelected>>', self.update_controls)
-        self.detector_selector.pack(padx=5, pady=5)
+        self.provider_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(self.provider_tab, text='Image provider')
+        self.detector_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(self.detector_tab, text='Object detection')
+        self.classes_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(self.classes_tab, text='Classes')
 
-        self.provider_selector = ttk.Combobox(self.right_frame, values=[], state='readonly')
-        self.provider_selector.bind('<<ComboboxSelected>>', self.update_controls)
-        self.provider_selector.pack(padx=5, pady=5)
+        self.provider_buttons = []
+        self.detector_buttons = []
+        self.classes_buttons = []
 
         # set up image provider lists
         self.image_providers = []
@@ -47,25 +57,54 @@ class MainWindow():
         self.selected_provider = -1
         self.selected_detector = -1
 
-        # start rendering the image
-        self.update_image()
+    def update_provider_controls(self, change_selection = -1):
+        for button in self.provider_buttons:
+            button.destroy()
+        self.provider_buttons.clear()
 
-    def update_controls(self, event=None):
-        provider_names = [provider.name for provider in self.image_providers]
-        self.provider_selector['values'] = provider_names
-        selected_provider_name = self.provider_selector.get()
-        if selected_provider_name in provider_names and selected_provider_name != '':
-            self.selected_provider = provider_names.index(selected_provider_name)
-        else:
-            self.selected_provider = -1
+        if change_selection >= 0:
+            self.selected_provider = change_selection
 
-        detector_names = [detector.name for detector in self.object_detectors]
-        self.detector_selector['values'] = detector_names
-        selected_detector_name = self.detector_selector.get()
-        if selected_detector_name in detector_names and selected_detector_name != '':
-            self.selected_detector = detector_names.index(selected_detector_name)
-        else:
-            self.selected_detector = -1
+        i = 0
+        for provider in self.image_providers:
+            button = ttk.Button(self.provider_tab, text=provider.name, command=lambda i=i: self.update_provider_controls(i))
+            button.pack(fill=tk.X, padx=10, pady=0)
+            self.provider_buttons.append(button)
+            i += 1
+
+    def update_detector_controls(self, change_selection = -1):
+        for button in self.detector_buttons:
+            button.destroy()
+        self.detector_buttons.clear()
+
+        if change_selection >= 0:
+            self.selected_detector = change_selection
+            self.update_classes_controls()
+
+        i = 0
+        for detector in self.object_detectors:
+            button = ttk.Button(self.detector_tab, text=detector.name, command=lambda i=i: self.update_detector_controls(i))
+            button.pack(fill=tk.X, padx=10, pady=0)
+            self.detector_buttons.append(button)
+            i += 1
+
+    def update_classes_controls(self, toggle_class = -1):
+        for button in self.classes_buttons:
+            button.destroy()
+        self.classes_buttons.clear()
+
+        if toggle_class >= 0:
+            self.object_detectors[self.selected_detector].enable_classes[toggle_class] = \
+            not self.object_detectors[self.selected_detector].enable_classes[toggle_class]
+
+        i = 0
+        for detection_class in self.object_detectors[self.selected_detector].classes().items():
+            button = tk.Button(self.classes_tab, text=detection_class[0], font=self.big_font, command=lambda i=i: self.update_classes_controls(i))
+            if self.object_detectors[self.selected_detector].enable_classes[i]:
+                button.configure(bg=detection_class[1])
+            button.pack(fill=tk.X, padx=10, pady=0)
+            self.classes_buttons.append(button)
+            i += 1
 
     def update_image(self):
         # do not ask for an image if there is no provider or an invalid one is selected
@@ -131,8 +170,10 @@ main_window.object_detectors.append(NoDetection())
 # add all yolo models in "yolo" directory, each in its own subdirectory containing model.onnx and classes.csv
 main_window.object_detectors.extend(YoloObjectDetection.look_for_models())
 
-# update the controls to correctly show data
-main_window.update_controls()
+# start updating parts of the main window
+main_window.update_provider_controls()
+main_window.update_detector_controls()
+main_window.update_image()
 
 # start the application
 root.mainloop()
