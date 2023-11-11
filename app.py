@@ -76,6 +76,8 @@ class MainWindow():
     # change detector run frequency relatively
     def change_detector_frequency(self, change):
         self.detector_frequency += change
+        if self.detector_frequency <= 0:
+            self.detector_frequency = 1
         self.detector_frequency_display.configure(text=f"{self.detector_frequency:02}")
 
     # update ui and selection of image providers
@@ -139,7 +141,7 @@ class MainWindow():
 
         # acquire a new image
         self.image = self.image_providers[self.selected_provider].next()
-        self.image = cv2.resize(self.image, self.object_detectors[self.selected_detector].image_resolution())
+        self.image = cv2.cvtColor(cv2.resize(self.image, self.object_detectors[self.selected_detector].image_resolution()), cv2.COLOR_BGR2RGB)
 
         # do not ask for an image if there is no provider or an invalid one is selected
         if 0 <= self.selected_detector < len(self.object_detectors) and self.frame_counter % self.detector_frequency == 0:
