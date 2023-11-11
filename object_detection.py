@@ -6,8 +6,10 @@ class ObjectDetection(ABC):
     name = ""
     _image_height = 640
     _image_width = 640
-    _classes = {}
-    enable_classes = []
+
+    def __init__(self):
+        self._classes = {}
+        self.enable_classes = []
 
     def image_resolution(self):
         return (self._image_width, self._image_height)
@@ -23,6 +25,9 @@ class ObjectDetection(ABC):
 class NoDetection(ObjectDetection):
 
     name = "none"
+
+    def __init__(self):
+        super().__init__()
 
     def detect(self, image, threshold, nms_threshold):
         return [], [], [], []

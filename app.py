@@ -24,6 +24,8 @@ class MainWindow():
         self.display_height = display_height
         self.image_display_width = display_height * image_aspect_ratio
         self.interval = 10
+        self.detector_frequency = 5
+        self.frame_counter = 0
 
         # configure style
         self.big_font = ('Helvetica', 15)
@@ -39,24 +41,44 @@ class MainWindow():
         self.tab_control = ttk.Notebook(self.window, width=int(self.display_width - self.image_display_width), height=self.display_height)
         self.tab_control.grid(row=0, column=1, padx=10, pady=5)
 
+        # image provider settings tab
         self.provider_tab = ttk.Frame(self.tab_control)
         self.tab_control.add(self.provider_tab, text='Image provider')
+        self.provider_buttons = []
+
+        # object detector settings tab
         self.detector_tab = ttk.Frame(self.tab_control)
         self.tab_control.add(self.detector_tab, text='Object detection')
+        self.detector_buttons = []
+
+        # init detector run frequency controls
+        self.detector_frequency_control = ttk.Frame(self.detector_tab)
+        self.detector_frequency_control.pack(fill=tk.BOTH, padx=10, pady=10)
+        ttk.Label(self.detector_frequency_control, text="Frames per run: ").grid(row=0, column=0, padx=3, pady=0);
+        ttk.Button(self.detector_frequency_control, text="-", command=lambda: self.change_detector_frequency(-1)).grid(row=0, column=1, padx=3, pady=0)
+        self.detector_frequency_display = ttk.Label(self.detector_frequency_control)
+        self.detector_frequency_display.grid(row=0, column=2, padx=3, pady=0)
+        self.change_detector_frequency(0)
+        ttk.Button(self.detector_frequency_control, text="+", command=lambda: self.change_detector_frequency(+1)).grid(row=0, column=3, padx=3, pady=0)
+
+        # class settings tab
         self.classes_tab = ttk.Frame(self.tab_control)
         self.tab_control.add(self.classes_tab, text='Classes')
-
-        self.provider_buttons = []
-        self.detector_buttons = []
         self.classes_buttons = []
 
-        # set up image provider lists
+        # set up component lists
         self.image_providers = []
-        self.object_detectors = []
-
         self.selected_provider = -1
+
+        self.object_detectors = []
         self.selected_detector = -1
 
+    # change detector run frequency relatively
+    def change_detector_frequency(self, change):
+        self.detector_frequency += change
+        self.detector_frequency_display.configure(text=f"{self.detector_frequency:02}")
+
+    # update ui and selection of image providers
     def update_provider_controls(self, change_selection = -1):
         for button in self.provider_buttons:
             button.destroy()
@@ -72,6 +94,7 @@ class MainWindow():
             self.provider_buttons.append(button)
             i += 1
 
+    # update ui and selection of object detectors
     def update_detector_controls(self, change_selection = -1):
         for button in self.detector_buttons:
             button.destroy()
@@ -88,6 +111,7 @@ class MainWindow():
             self.detector_buttons.append(button)
             i += 1
 
+    # update ui and toggles of detected classes
     def update_classes_controls(self, toggle_class = -1):
         for button in self.classes_buttons:
             button.destroy()
@@ -106,6 +130,7 @@ class MainWindow():
             self.classes_buttons.append(button)
             i += 1
 
+    # 
     def update_image(self):
         # do not ask for an image if there is no provider or an invalid one is selected
         if not 0 <= self.selected_provider < len(self.image_providers):
@@ -117,7 +142,7 @@ class MainWindow():
         self.image = cv2.resize(self.image, self.object_detectors[self.selected_detector].image_resolution())
 
         # do not ask for an image if there is no provider or an invalid one is selected
-        if 0 <= self.selected_detector < len(self.object_detectors):
+        if 0 <= self.selected_detector < len(self.object_detectors) and self.frame_counter % self.detector_frequency == 0:
             # run the selected detector
             boxes, colors, names, confidences = self.object_detectors[self.selected_detector].detect(self.image, .3, .5)
             # draw bounding boxes
@@ -139,6 +164,8 @@ class MainWindow():
                     text_point, cv2.FONT_HERSHEY_SIMPLEX,
                     .5, color, 1, cv2.LINE_AA
                 )
+
+        self.frame_counter += 1
 
         # format the image to be displayed
         self.image = Image.fromarray(self.image)

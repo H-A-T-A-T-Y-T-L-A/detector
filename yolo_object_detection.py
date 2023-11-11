@@ -12,6 +12,7 @@ class YoloObjectDetection(ObjectDetection):
     __class_colors = None
 
     def __init__(self, name, model, classes):
+        super().__init__()
         self.name = name
         self.__net = cv2.dnn.readNetFromONNX(model)
         with open(classes, newline='') as classes_file:
@@ -24,7 +25,7 @@ class YoloObjectDetection(ObjectDetection):
                 class_color = tuple([int(str.replace(c, "\"", "")) for c in row[1:]])
                 self.__class_names.append(class_name)
                 self.__class_colors.append(class_color)
-                super()._classes[class_name] = class_color
+                self._classes[class_name] = class_color
 
             self.enable_classes = [True for i in self.__class_names]
 
