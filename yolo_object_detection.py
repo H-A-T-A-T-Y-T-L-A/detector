@@ -66,7 +66,7 @@ class YoloObjectDetection(ObjectDetection):
             np.int16(boxes)[valid_boxes], \
             np.array(self.__class_colors)[class_ids], \
             np.array(self.__class_names)[class_ids], \
-            np.int16(class_confs)[valid_boxes]
+            np.float16(class_confs)[valid_boxes]
 
 
     @staticmethod

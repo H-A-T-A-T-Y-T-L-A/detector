@@ -164,7 +164,7 @@ class MainWindow():
 
                 self.image = cv2.rectangle(self.image, start_point, end_point, color, 1)
                 self.image = cv2.putText(
-                    self.image, " ".join([names[i], str(confidences[i])]),
+                    self.image, f"{names[i]} {confidences[i]:.02}",
                     text_point, cv2.FONT_HERSHEY_SIMPLEX,
                     .5, color, 1, cv2.LINE_AA
                 )
