@@ -10,8 +10,10 @@ from threading import Thread
 from threading import Event
 
 from video_image_provider import VideoImageProvider
-if 'picamera2' in sys.modules:
+try:
     from picamera_image_provider import PicameraImageProvider
+except:
+    pass
 from object_detection import NoDetection
 from yolo_object_detection import YoloObjectDetection
 
