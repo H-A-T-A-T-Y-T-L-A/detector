@@ -4,27 +4,38 @@ from image_provider import ImageProvider
 
 class VideoImageProvider(ImageProvider):
 
-    __video = None
-    __current_frame = 0
+    video_path = ""
+    frame_count = 0
+    current_frame = 0
+    video = None
 
     def __init__(self, video):
-        self.__video = cv2.VideoCapture(video)
-        self.__current_frame = 0
+        self.video_path = video
+        self.video = cv2.VideoCapture(video)
+
+        self.frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.current_frame = 0
 
         self.name = 'video: ' + video
 
+
     def next(self):
-        success, image = self.__video.read()
+        success, image = self.video.read()
 
         if (success):
+            self.current_frame += 1
             return image
 
-        self.__video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        self.reset()
         return self.next()
 
     def dt(self):
-        if (self.__video is None):
+        if (self.video is None):
             return -1
 
-        fps = self.__video.get(cv2.CAP_PROP_FPS)
+        fps = self.video.get(cv2.CAP_PROP_FPS)
         return 1/fps
+
+    def reset(self):
+        self.current_frame = 0
+        self.video.set(cv2.CAP_PROP_POS_FRAMES, 0)

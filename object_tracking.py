@@ -13,7 +13,13 @@ class ObjectTracking(ABC):
     def track(self, image):
         pass
 
+    @abstractmethod
+    def reset(self):
+        pass
+
 class NoTracking(ObjectTracking):
+
+    name = "none"
 
     def init(self, image, boxes):
         pass
@@ -21,11 +27,15 @@ class NoTracking(ObjectTracking):
     def track(self, image):
         pass
 
+    def reset(self):
+        pass
+
 class CV2Tracking(ObjectTracking):
 
     tracker_types = {
         "CSRT" : cv2.TrackerCSRT_create,
-        "KCF" : cv2.TrackerKCF_create
+        "KCF" : cv2.TrackerKCF_create,
+        "MOSSE" : cv2.legacy.TrackerMOSSE_create
     }
 
     def __init__(self, tracker, resolution):
@@ -36,11 +46,7 @@ class CV2Tracking(ObjectTracking):
 
     def init(self, image, boxes):
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        if len(boxes) > len(self.trackers):
-            self.trackers.extend([self.tracker_init() for box in boxes])
-        elif len(boxes) < len(self.trackers):
-            self.trackers = self.trackers[0:len(boxes)-1]
+        self.trackers = [self.tracker_init() for box in boxes]
 
         for i in range(len(boxes)):
             self.trackers[i].init(image, boxes[i])
@@ -58,3 +64,6 @@ class CV2Tracking(ObjectTracking):
                 boxes.append(None)
 
         return boxes
+
+    def reset(self):
+        self.trackers.clear()

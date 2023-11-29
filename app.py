@@ -2,6 +2,7 @@ import cv2
 import time
 import sys
 import os
+import copy
 import numpy as np
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -17,6 +18,7 @@ except:
 from object_detection import NoDetection
 from yolo_object_detection import YoloObjectDetection
 from object_tracking import NoTracking, CV2Tracking
+from accuracy_evaluation import AccuracyEvaluator
 
 
 class MainWindow():
@@ -27,7 +29,7 @@ class MainWindow():
         self.display_height = display_height
         self.image_display_width = display_height * image_aspect_ratio
         self.interval = 10
-        self.detector_frequency = 5
+        self.detector_frequency = 30
         self.frame_counter = 0
 
         # configure style
@@ -46,17 +48,17 @@ class MainWindow():
 
         # image provider settings tab
         self.provider_tab = ttk.Frame(self.tab_control)
-        self.tab_control.add(self.provider_tab, text='Image provider')
+        self.tab_control.add(self.provider_tab, text='Image')
         self.provider_buttons = []
 
         # object detector settings tab
         self.detector_tab = ttk.Frame(self.tab_control)
-        self.tab_control.add(self.detector_tab, text='Object detection')
+        self.tab_control.add(self.detector_tab, text='Detection')
         self.detector_buttons = []
         
         # object detector settings tab
         self.tracker_tab = ttk.Frame(self.tab_control)
-        self.tab_control.add(self.tracker_tab, text='Object tracking')
+        self.tab_control.add(self.tracker_tab, text='Tracking')
         self.tracker_buttons = []
 
         # init detector run frequency controls
@@ -84,6 +86,8 @@ class MainWindow():
         self.object_trackers = []
         self.selected_tracker = -1
         self.detections = None
+
+        self.accuracy_evaluators = {}
 
     # change detector run frequency relatively
     def change_detector_frequency(self, change):
@@ -117,6 +121,7 @@ class MainWindow():
         if change_selection >= 0:
             self.selected_detector = change_selection
             self.update_classes_controls()
+            self.object_trackers[self.selected_tracker].reset()
 
         i = 0
         for detector in self.object_detectors:
@@ -170,17 +175,46 @@ class MainWindow():
         # acquire a new image
         self.image = self.image_providers[self.selected_provider].next()
         self.image = cv2.cvtColor(cv2.resize(self.image, self.object_detectors[self.selected_detector].image_resolution()), cv2.COLOR_BGR2RGB)
+        self.image_to_detect = copy.deepcopy(self.image)
+
+        self.truth = self.accuracy_evaluators[self.image_providers[self.selected_provider]].evaluate();
+
+        # draw true boxes if available
+        if self.truth is not None:
+            true_class_name = self.truth[-1]
+            true_box = np.int16(self.truth[0:4])
+
+            center_point = true_box[0:2]
+            rect_size = np.int16(true_box[2:4]/2)
+            start_point = center_point - rect_size
+            end_point = center_point + rect_size
+            text_point = start_point + [0, 10] + [0, rect_size[1] * 2]
+
+            start_point = tuple(start_point)
+            end_point = tuple(end_point)
+            text_point = tuple(text_point)
+            color = (0, 0, 0)
+
+            self.image = cv2.rectangle(self.image, start_point, end_point, color, 1)
+            self.image = cv2.putText(
+                self.image, f"{true_class_name}",
+                text_point, cv2.FONT_HERSHEY_SIMPLEX,
+                .5, color, 1, cv2.LINE_AA
+            )
 
         # if a detector is selected and enough frames have passed since last detection, run detection
         if 0 <= self.selected_detector < len(self.object_detectors):
             if self.frame_counter % self.detector_frequency == 0:
                 # run the selected detector
-                boxes, colors, names, confidences = self.object_detectors[self.selected_detector].detect(self.image, .2, .5)
+                boxes, colors, names, confidences = self.object_detectors[self.selected_detector].detect(self.image_to_detect, .2, .5)
                 self.detections = [boxes, colors, names, confidences]
                 if 0 <= self.selected_tracker < len(self.object_trackers):
-                    self.object_trackers[self.selected_tracker].init(self.image, boxes)
+                    self.object_trackers[self.selected_tracker].init(self.image_to_detect, boxes)
             elif 0 <= self.selected_tracker < len(self.object_trackers):
-                self.detections[0] = self.object_trackers[self.selected_tracker].track(self.image)
+                if self.detections is not None:
+                    self.detections[0] = self.object_trackers[self.selected_tracker].track(self.image_to_detect)
+
+
 
             # draw bounding boxes
             if self.detections is not None and self.detections[0] is not None:
@@ -231,7 +265,9 @@ main_window = MainWindow(root, display_width=1024, display_height=600, image_asp
 # load all videos in directory "videos" as input providers
 if os.path.exists("videos"):
     for video in os.listdir("videos"):
-        main_window.image_providers.append(VideoImageProvider(os.path.join("videos", video)))
+        new_provider = VideoImageProvider(os.path.join("videos", video))
+        main_window.image_providers.append(new_provider)
+        main_window.accuracy_evaluators[new_provider] = AccuracyEvaluator("video annotations", new_provider)
 
 # if picamera2 library is installed, load it as a provider
 if 'picamera2' in sys.modules:
@@ -245,8 +281,9 @@ main_window.object_detectors.extend(YoloObjectDetection.look_for_models())
 
 # add different types of trackers
 main_window.object_trackers.append(NoTracking())
-main_window.object_trackers.append(CV2Tracking("CSRT", (640, 640)))
-main_window.object_trackers.append(CV2Tracking("KCF", (640, 640)))
+trackers = ["CSRT", "KCF", "MOSSE"]
+for t in trackers:
+    main_window.object_trackers.append(CV2Tracking(t, (640, 640)))
 
 # start updating parts of the main window
 main_window.update_provider_controls()
