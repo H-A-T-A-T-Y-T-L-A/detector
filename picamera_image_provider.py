@@ -8,6 +8,8 @@ from image_provider import ImageProvider
 class PicameraImageProvider(ImageProvider):
 
     name = "Camera"
+    last_time = time.time()
+    current_time = time.time()
 
     def __init__(self, resolution):
         self.camera = Picamera2()
@@ -21,7 +23,9 @@ class PicameraImageProvider(ImageProvider):
 
     def next(self):
         img = self.camera.capture_array()
+        self.last_time = self.current_time
+        self.current_time = time.time()
         return img
 
     def dt(self):
-        pass
+        return self.current_time - self.last_time
