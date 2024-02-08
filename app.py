@@ -177,7 +177,10 @@ class MainWindow():
         self.image = cv2.cvtColor(cv2.resize(self.image, self.object_detectors[self.selected_detector].image_resolution()), cv2.COLOR_BGR2RGB)
         self.image_to_detect = copy.deepcopy(self.image)
 
-        self.truth = self.accuracy_evaluators[self.image_providers[self.selected_provider]].evaluate();
+        self.truth = None
+        current_evaluator = self.accuracy_evaluators.get(self.image_providers[self.selected_provider]);
+        if current_evaluator is not None:
+            self.truth = current_evaluator.evaluate();
 
         # draw true boxes if available
         if self.truth is not None:
